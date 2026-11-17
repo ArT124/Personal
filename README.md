@@ -1,0 +1,1 @@
+Personal project to make a DSA reminder and scheduler for personalized experience and work management 
