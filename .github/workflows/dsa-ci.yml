@@ -1,0 +1,27 @@
+name: Daily DSA - tests
+
+on:
+  push:
+    paths: ['dsa/**', '.github/workflows/dsa-ci.yml']
+  pull_request:
+    paths: ['dsa/**']
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dsa
+    strategy:
+      matrix:
+        node: [20, 22]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+          cache-dependency-path: dsa/package-lock.json
+      - run: npm ci
+      - run: npm run check:curriculum
+      - run: npm test

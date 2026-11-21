@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Daily DSA</title>
+    <meta name="description" content="One LeetCode problem a day, in the right learning order. Daily reminders, streaks, revision and progress tracking on phone and computer." />
+    <meta name="theme-color" content="#0f766e" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0b1514" media="(prefers-color-scheme: dark)" />
+    <meta name="color-scheme" content="light dark" />
+    <meta property="og:title" content="Daily DSA" />
+    <meta property="og:description" content="One LeetCode problem a day, in the right learning order, with daily reminders." />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="/icons/icon-512.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Daily DSA" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/icons/icon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/icons/favicon-32.png" sizes="32x32" type="image/png" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="/css/styles.css" />
+    <script type="module" src="/js/app.js"></script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a class="brand" href="#/" aria-label="Daily DSA home">
+          <img src="/icons/icon.svg" width="28" height="28" alt="" />
+          <span>Daily DSA</span>
+        </a>
+        <nav class="nav-desktop" aria-label="Main">
+          <a href="#/" data-nav="today">Today</a>
+          <a href="#/roadmap" data-nav="roadmap">Roadmap</a>
+          <a href="#/stats" data-nav="stats">Stats</a>
+          <a href="#/settings" data-nav="settings">Settings</a>
+          <a href="#/about" data-nav="about">About</a>
+        </nav>
+        <button class="btn btn-small btn-ghost install-btn" id="install-btn" hidden>Install app</button>
+      </div>
+    </header>
+
+    <div class="offline-banner" id="offline-banner" role="status" hidden>You're offline. Showing saved data; changes need a connection.</div>
+
+    <main id="main" tabindex="-1">
+      <div class="loading" aria-live="polite"><div class="spinner" aria-hidden="true"></div><p>Loading…</p></div>
+    </main>
+
+    <nav class="nav-mobile" aria-label="Main">
+      <a href="#/" data-nav="today"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 2v3M16 2v3M3.5 9h17M5 4h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2Zm4 10 2 2 4-4"/></svg><span>Today</span></a>
+      <a href="#/roadmap" data-nav="roadmap"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Zm0 0v14m6-12v14"/></svg><span>Roadmap</span></a>
+      <a href="#/stats" data-nav="stats"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10m6 10V4m6 16v-7m6 7H2"/></svg><span>Stats</span></a>
+      <a href="#/settings" data-nav="settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></svg><span>Settings</span></a>
+    </nav>
+
+    <div class="toast-region" id="toasts" role="status" aria-live="polite"></div>
+
+    <dialog id="dialog" class="dialog">
+      <form method="dialog" class="dialog-body">
+        <h2 id="dialog-title"></h2>
+        <div id="dialog-text"></div>
+        <div class="dialog-actions">
+          <button value="cancel" class="btn btn-ghost" id="dialog-cancel">Cancel</button>
+          <button value="ok" class="btn btn-primary" id="dialog-ok">OK</button>
+        </div>
+      </form>
+    </dialog>
+
+    <noscript><p class="noscript">Daily DSA needs JavaScript turned on.</p></noscript>
+  </body>
+</html>
