@@ -1,0 +1,27 @@
+# Render Blueprint: Dashboard → New → Blueprint → pick this repo.
+# Free web service. Set MONGODB_URI (free MongoDB Atlas) when asked.
+services:
+  - type: web
+    name: daily-dsa
+    runtime: node
+    plan: free
+    rootDir: dsa
+    buildCommand: npm ci --omit=dev
+    startCommand: npm start
+    healthCheckPath: /healthz
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NODE_VERSION
+        value: "20"
+      - key: MONGODB_URI
+        sync: false
+      - key: MONGODB_DB
+        value: daily_dsa
+      - key: CRON_SECRET
+        generateValue: true
+      - key: VAPID_SUBJECT
+        value: mailto:admin@example.com
+      - key: INTERNAL_SCHEDULER_MINUTES
+        value: "5"
