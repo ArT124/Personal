@@ -1,8 +1,17 @@
 // Sanity checks for the roadmap: no duplicate slugs or numbers, valid fields.
 // Run: npm run check:curriculum
-import { TOPICS, SEQUENCE } from '../server/data/curriculum.js';
+import { TOPICS, SEQUENCE, PHASES } from '../server/data/curriculum.js';
 
 const errors = [];
+const phaseIds = PHASES.map((ph) => ph.id);
+let lastPhase = 0;
+for (const t of TOPICS) {
+  const at = phaseIds.indexOf(t.phase);
+  if (at < 0) errors.push(`topic ${t.id} has unknown phase ${t.phase}`);
+  else if (at < lastPhase) errors.push(`topic ${t.id} is out of phase order`);
+  else lastPhase = at;
+  if (!t.problems.length) errors.push(`topic ${t.id} has no problems`);
+}
 const slugs = new Set();
 const nums = new Set();
 for (const p of SEQUENCE) {
@@ -15,7 +24,7 @@ for (const p of SEQUENCE) {
   if (!p.hint) errors.push(`missing hint for ${p.slug}`);
 }
 const counts = SEQUENCE.reduce((acc, p) => ({ ...acc, [p.difficulty]: (acc[p.difficulty] || 0) + 1 }), {});
-console.log(`${TOPICS.length} topics, ${SEQUENCE.length} problems`, counts);
+console.log(`${PHASES.length} phases, ${TOPICS.length} topics, ${SEQUENCE.length} problems`, counts);
 if (errors.length) {
   console.error(errors.join('\n'));
   process.exit(1);

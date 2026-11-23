@@ -30,7 +30,16 @@ before(async () => {
   };
   const config = { appUrl: 'https://dsa.example.com', cronSecret: 'secret123', isProduction: false, trustProxy: false };
   scheduler = createScheduler({ store, push, appUrl: config.appUrl });
-  const app = createApp({ store, push, scheduler, config });
+  // Fake LeetCode list for the optional random practice feature (no network in tests).
+  const practiceSource = {
+    async list({ skip }) {
+      const questions = [9001, 9002, 9003].map((n) => ({
+        num: n, title: `Practice ${n}`, slug: `practice-${n}`, difficulty: 'Easy', paidOnly: false, tags: [{ slug: 'math', name: 'Math' }],
+      }));
+      return { total: questions.length, questions: questions.slice(skip) };
+    },
+  };
+  const app = createApp({ store, push, scheduler, config, practiceSource });
   await new Promise((resolve) => {
     server = app.listen(0, resolve);
   });
@@ -84,6 +93,7 @@ test('public config and curriculum', async () => {
   assert.equal(cfg.json.totalProblems, SEQUENCE.length);
   const cur = await call('/api/curriculum');
   assert.equal(cur.json.topics.flatMap((t) => t.problems).length, SEQUENCE.length);
+  assert.ok(cur.json.topics.every((t) => t.phase.startsWith('Phase ')));
 });
 
 test('auth is required and checked', async () => {
@@ -205,4 +215,38 @@ test('delete account', async () => {
   const code = await newAccount();
   assert.equal((await call('/api/me', { method: 'DELETE', code })).status, 200);
   assert.equal((await call('/api/me', { code })).status, 401);
+});
+
+test('random practice is optional and off by default', async () => {
+  const code = await newAccount();
+  const today = (await call('/api/today', { code })).json;
+  assert.equal(today.practice.enabled, false);
+  assert.equal((await call('/api/practice/next', { method: 'POST', code })).status, 409);
+
+  assert.equal((await call('/api/me/settings', { method: 'PATCH', code, body: { randomPractice: 'yes' } })).status, 400);
+  await call('/api/me/settings', { method: 'PATCH', code, body: { randomPractice: true } });
+  const first = await call('/api/practice/next', { method: 'POST', code });
+  assert.equal(first.status, 200);
+  assert.match(first.json.current.slug, /^practice-/);
+
+  // "Another one" records the old one as skipped and gives a different problem.
+  const second = (await call('/api/practice/next', { method: 'POST', code })).json;
+  assert.notEqual(second.current.slug, first.json.current.slug);
+  assert.equal(second.skipped, 1);
+
+  const solved = (await call('/api/practice/result', { method: 'POST', code, body: { result: 'solved' } })).json;
+  assert.equal(solved.solved, 1);
+  assert.equal(solved.current, null);
+  const after = (await call('/api/today', { code })).json;
+  assert.equal(after.streak.current, 1);
+  assert.equal(after.progress.solved, 0); // the roadmap is untouched
+
+  const undone = (await call('/api/practice/undo', { method: 'POST', code })).json;
+  assert.equal(undone.solved, 0);
+  assert.equal(undone.current.slug, second.current.slug);
+  assert.equal((await call('/api/today', { code })).json.streak.current, 0);
+
+  const cleared = (await call('/api/practice/clear', { method: 'POST', code })).json;
+  assert.equal(cleared.current, null);
+  assert.equal((await call('/api/practice/result', { method: 'POST', code, body: { result: 'solved' } })).status, 409);
 });

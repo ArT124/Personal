@@ -397,6 +397,23 @@ main:focus-visible {
     flex: 0 0 auto;
   }
 }
+.practice-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.practice-head h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.practice-card .problem-title {
+  margin-top: 12px;
+}
 .problem-card.is-done {
   border-color: color-mix(in srgb, var(--easy) 45%, var(--border));
 }
@@ -689,6 +706,17 @@ details.topic > summary::-webkit-details-marker {
 }
 .topic-name {
   font-weight: 700;
+}
+.phase-head {
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  margin: 20px 4px 8px;
+}
+.phase-head:first-child {
+  margin-top: 4px;
 }
 .topic-count {
   font-size: 0.85rem;

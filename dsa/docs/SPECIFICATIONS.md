@@ -1,6 +1,6 @@
 # Daily DSA: Specifications & Features
 
-Version 1.0.0
+Version 1.1.0
 
 ## 1. What it is
 
@@ -18,7 +18,7 @@ A website and installable app that gives you a daily DSA problem from LeetCode, 
 | Offline / install | Service Worker + Web App Manifest (PWA) | Installs on Android, iOS, Windows, macOS and Linux |
 | Security | Helmet (CSP, HSTS and other headers), express-rate-limit, hashed tokens | Covers the basics a public site needs |
 | Performance | gzip compression, cache headers, service-worker caching | Fast on slow mobile networks |
-| Tests | Node's built-in `node:test` (26 tests) | No extra test framework |
+| Tests | Node's built-in `node:test` (36 tests) | No extra test framework |
 | CI | GitHub Actions (Node 20 and 22) | Runs the tests on every push |
 | Hosting | Render free web service | Free Node hosting with HTTPS |
 | Scheduler | cron-job.org (main) + GitHub Actions (backup) + timer inside the server | Wakes the sleeping free server and sends reminders on time |
@@ -28,12 +28,19 @@ A website and installable app that gives you a daily DSA problem from LeetCode, 
 
 ## 3. Learning roadmap
 
-- **182 problems in 22 topics:** 55 Easy, 107 Medium, 20 Hard. All are free (non-premium) LeetCode problems.
-- **Topic order:** Arrays & Strings → Hashing → Prefix Sum → Two Pointers → Sliding Window → Stack & Queue → Binary Search → Linked List → Recursion Basics → Binary Trees → Binary Search Trees → Heap / Priority Queue → Backtracking → Tries → Graphs → Advanced Graphs → 1-D DP → 2-D DP → Greedy → Intervals → Bit Manipulation → Math & Matrix.
+- **336 problems in 37 topics and 6 phases:** 87 Easy, 205 Medium, 44 Hard. All are free (non-premium) LeetCode problems. Research and reasoning: [CURRICULUM.md](CURRICULUM.md).
+- **Phases and topics:**
+  1. *Foundations:* Basics & Complexity → Arrays & Strings → Hashing → Prefix Sum → Matrix → Recursion → Sorting
+  2. *Core patterns:* Two Pointers → Sliding Window → Binary Search → Binary Search on the Answer → Linked List → Stack & Queue → Monotonic Stack & Deque → **Mixed Review I**
+  3. *Trees, heaps & search:* Binary Trees → BSTs → Heap → Backtracking → Tries
+  4. *Graphs:* BFS & DFS → Topological Sort → Union-Find → Shortest Paths & MST → **Mixed Review II**
+  5. *Greedy & DP:* Greedy → Intervals → 1-D DP → 2-D DP → Knapsack & LIS → States/Intervals/Trees/Bitmasks
+  6. *Specialist:* Bits → Math → String Algorithms → Segment & Fenwick Trees → Data Structure Design → **Capstone: Mixed Review III**
+- **Mixed Review** topics are checkpoints with unlabeled problems from earlier phases, so you practise choosing the pattern yourself (interleaved practice).
 - Problems go from easy to hard inside each topic.
 - Every problem has its LeetCode number, difficulty, a one-line hint (hidden until you ask for it) and a direct link: `https://leetcode.com/problems/<slug>/`.
 - You can start from any topic. Earlier topics come after the rest of the roadmap, so nothing is lost.
-- At 1 problem a day the roadmap takes about 6 months; at 2 a day, about 3 months.
+- At 1 problem a day the roadmap takes about 11 months; at 2 a day, about 5.5 months; at 3 a day, about 4 months. With less time, start from Two Pointers.
 
 ## 4. Features
 
@@ -43,13 +50,24 @@ A website and installable app that gives you a daily DSA problem from LeetCode, 
 - **Solve on LeetCode** opens the exact problem in a new tab.
 - Each problem can be marked **Solved**, **Solved, revise later** or **Skip** ("I already know this"), and every mark can be undone. An Undo button also appears in the confirmation toast.
 - **"Give me one more"** adds a bonus problem once today's goal is done.
-- A greeting with your name and the date, a streak counter, and overall progress (x / 182, % done, estimated days left).
+- A greeting with your name and the date, a streak counter, and overall progress (x / 336, % done, estimated days left).
 - The page refreshes automatically when you come back to it from LeetCode.
 
 ### 4.2 Recommendations
 - **Revise:** problems you marked "revise later", then spaced repetition. Solved problems come back after 3, 7, 21 and 60 days. Tap **Done** after re-solving.
 - **Up next:** the next 3 problems in your roadmap.
 - **Stretch goal:** a harder unsolved problem from the topic you're on.
+
+### 4.2a Random extra practice (optional)
+- **Off by default.** Turn it on in Settings → Daily plan → *Random extra practice*. When it is off, nothing about it appears on the Today page.
+- When it is on, the Today page has an **Extra practice** card. Tap **Give me a random problem** to get a random problem from LeetCode's full problem set, only when you want one.
+- **Based on your progress:** problems come from the topics you've already made progress in (for a new user, the topic you're starting with). A problem is only offered if *all* of its LeetCode tags belong to topics you've covered, so it never needs something you haven't learned yet.
+- **Difficulty follows progress:** a topic under half done gives mostly Easy problems, a topic past halfway mostly Medium, and a finished topic Medium and Hard.
+- Never offers premium problems, roadmap problems, or problems you've already practised.
+- Choices for each problem: **Solve on LeetCode**, **Mark solved** (with Undo), **Another one** (skips it), or **Not now** (hides it and records nothing).
+- Solved extra problems count toward your streak and heatmap, and show on the Stats page. They never change roadmap progress.
+- If LeetCode can't be reached, it offers a roadmap problem you've already solved instead, to practise again.
+- Practice history is included in Export/Import and cleared by Reset.
 
 ### 4.3 Reminders and notifications
 - A **daily push notification** at the time you choose, in your own time zone. Tapping it **opens the LeetCode problem directly**.
@@ -63,7 +81,7 @@ A website and installable app that gives you a daily DSA problem from LeetCode, 
 - Clear help when notifications are blocked or unsupported, including the iPhone "Add to Home Screen first" step.
 
 ### 4.4 Roadmap page
-- All 22 topics with progress bars. The topic you're on is marked **You are here**; finished topics get a check mark.
+- All 37 topics with progress bars, grouped under phase headings. The topic you're on is marked **You are here**; finished topics get a check mark.
 - Expandable topic lists show each problem's number, title (linked to LeetCode), hint and difficulty.
 - Change any problem's status from the list (To do / Solved / Revise / Skip), or tap the circle to toggle Solved.
 - Search by title, topic or LeetCode number, and filter by difficulty and status.
@@ -130,6 +148,11 @@ Requests that need an account send the header `Authorization: Bearer <userId>.<t
 | POST | `/api/today/bonus` | ✓ | Add one more problem today |
 | POST | `/api/problems/:slug/status` | ✓ | `solved` / `revise` / `skipped` / `todo` (undo) / `reviewed` |
 | GET | `/api/stats` | ✓ | Full statistics |
+| GET | `/api/practice` | ✓ | Random practice: current problem and counts |
+| POST | `/api/practice/next` | ✓ | Get a random problem (skips the current one); 409 if the feature is off |
+| POST | `/api/practice/result` | ✓ | `{ result: "solved" \| "skipped" }` for the current problem |
+| POST | `/api/practice/undo` | ✓ | Undo the last result |
+| POST | `/api/practice/clear` | ✓ | Hide the current problem without recording it |
 | POST | `/api/push/subscribe` | ✓ | Register this device for notifications |
 | POST | `/api/push/unsubscribe` | ✓ | Remove a device |
 | POST | `/api/push/test` | ✓ | Send a test notification |

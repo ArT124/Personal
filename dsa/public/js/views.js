@@ -205,6 +205,38 @@ function miniRow(p, extra = '') {
   </li>`;
 }
 
+function practiceCard(pr) {
+  if (!pr?.enabled) return '';
+  const head = html`<div class="practice-head"><h2 id="pr-h">${icons.sparkle} Extra practice <span class="pill">Optional</span></h2>
+    ${pr.solved ? html`<span class="muted small">${plural(pr.solved, 'extra problem')} solved</span>` : ''}</div>`;
+  const c = pr.current;
+  if (!c) {
+    return html`<section class="card section practice-card" aria-labelledby="pr-h">
+      ${head}
+      <p class="muted small">Want more practice today? Get a random LeetCode problem from the topics you've already covered. It doesn't change your roadmap, and you can skip it any time.</p>
+      <div class="btn-row"><button type="button" class="btn btn-primary" data-action="practice-next">${icons.sparkle} Give me a random problem</button></div>
+    </section>`;
+  }
+  return html`<section class="card section practice-card" aria-labelledby="pr-h">
+    ${head}
+    <div class="problem-meta">
+      <span class="pill pill-accent">Random</span>
+      <span class="pill">Based on: ${c.topicName}</span>
+      ${diffPill(c.difficulty)}
+    </div>
+    <h3 class="problem-title"><a href="${c.url}" target="_blank" rel="noopener noreferrer" data-action="open-leetcode">${c.title}</a></h3>
+    <div class="problem-num">LeetCode ${c.num}</div>
+    ${c.tags?.length ? html`<details class="hint"><summary>Show LeetCode topics</summary><p>${c.tags.join(' · ')}</p></details>` : ''}
+    ${c.source === 'roadmap' ? html`<p class="help">LeetCode couldn't be reached, so this is a roadmap problem you've already solved. Try solving it again from scratch.</p>` : ''}
+    <div class="problem-actions">
+      ${leetLink(c)}
+      <button type="button" class="btn" data-action="practice-result" data-result="solved">${icons.check} Mark solved</button>
+      <button type="button" class="btn" data-action="practice-next" title="Skip this one and get a different problem">${icons.skip} Another one</button>
+      <button type="button" class="btn btn-ghost" data-action="practice-clear" title="Hide it; nothing is recorded">Not now</button>
+    </div>
+  </section>`;
+}
+
 function renderToday(root, ctx, data, subscribed) {
   const { problems, recommendations: rec, streak, progress, settings } = data;
   root.innerHTML = String(html`
@@ -235,6 +267,8 @@ function renderToday(root, ctx, data, subscribed) {
       <span>${progress.estimatedDaysLeft > 0 ? `about ${plural(progress.estimatedDaysLeft, 'day')} to go` : 'complete'}</span></div>
       ${bar(progress.solved, progress.total)}
     </div>
+
+    ${practiceCard(data.practice)}
 
     <section class="section" aria-labelledby="rec-h">
       <h2 id="rec-h">Recommended for you</h2>
@@ -292,6 +326,33 @@ function renderToday(root, ctx, data, subscribed) {
         toastError(err);
         setBusy(el, false);
       }
+    }
+    if (action === 'practice-next' || action === 'practice-result' || action === 'practice-clear') {
+      setBusy(el, true);
+      const label = el.innerHTML;
+      if (action === 'practice-next') el.textContent = 'Finding a problem…';
+      try {
+        if (action === 'practice-next') await api('/practice/next', { method: 'POST' });
+        if (action === 'practice-clear') await api('/practice/clear', { method: 'POST' });
+        if (action === 'practice-result') {
+          await api('/practice/result', { method: 'POST', body: { result: el.dataset.result } });
+          toast('Extra problem solved. Nice!', {
+            action: {
+              label: 'Undo',
+              onClick: async () => {
+                await api('/practice/undo', { method: 'POST' });
+                update(await api('/today'));
+              },
+            },
+          });
+        }
+        update(await api('/today'));
+      } catch (err) {
+        toastError(err);
+        el.innerHTML = label;
+        setBusy(el, false);
+      }
+      return;
     }
     if (action === 'bonus') {
       setBusy(el, true);
@@ -379,7 +440,8 @@ export async function roadmapView(root, ctx) {
         const done = t.problems.filter((p) => p.status === 'solved' || p.status === 'revise').length;
         const complete = t.problems.every((p) => p.status !== 'todo');
         const isOpen = filtering || open.has(t.id);
-        return html`<details class="topic ${t.id === currentTopic ? 'is-current' : ''} ${complete ? 'is-complete' : ''}" data-topic="${t.id}" ${isOpen ? raw('open') : ''}>
+        const phaseHead = t.phase && (i === 0 || topics[i - 1].phase !== t.phase) ? html`<h2 class="phase-head">${t.phase}</h2>` : '';
+        return html`${phaseHead}<details class="topic ${t.id === currentTopic ? 'is-current' : ''} ${complete ? 'is-complete' : ''}" data-topic="${t.id}" ${isOpen ? raw('open') : ''}>
           <summary>
             <span class="topic-index">${complete ? icons.check : i + 1}</span>
             <span class="topic-name">${t.name}${t.id === currentTopic ? html` <span class="pill pill-accent">You are here</span>` : ''}${t.id === ctx.me.settings.startTopic && i > 0 ? html` <span class="pill">Start</span>` : ''}</span>
@@ -488,7 +550,7 @@ export async function statsView(root) {
           (d) => html`<div class="stat-row"><div class="progress-line"><span>${d}</span><span>${s.byDifficulty[d].done}/${s.byDifficulty[d].total}</span></div>${bar(s.byDifficulty[d].done, s.byDifficulty[d].total, `bar-${d}`)}</div>`,
         )}
         <hr class="divider section" />
-        <p class="muted small">${s.revise} marked for revision · ${s.skipped} skipped</p>
+        <p class="muted small">${s.revise} marked for revision · ${s.skipped} skipped${s.practiceSolved ? ` · ${plural(s.practiceSolved, 'extra practice problem')} solved` : ''}</p>
       </section>
       <section class="card" aria-labelledby="h-top">
         <h2 id="h-top">By topic</h2>
@@ -580,6 +642,10 @@ export async function settingsView(root, ctx) {
         <label for="st-topic">Start from topic</label>
         <select id="st-topic" data-setting="startTopic">${topics.map((t, i) => html`<option value="${t.id}" ${t.id === s.startTopic ? raw('selected') : ''}>${i + 1}. ${t.name}</option>`)}</select>
         <p class="help">Earlier topics are not lost; they come after the rest of the roadmap.</p>
+      </div>
+      <div class="switch-row">
+        <div><div class="label" id="l-random">Random extra practice</div><div class="small muted">Optional. Adds a card on the Today page that gives you a random LeetCode problem from the topics you've covered. It never changes your roadmap.</div></div>
+        <label class="switch"><input type="checkbox" data-setting="randomPractice" aria-labelledby="l-random" ${s.randomPractice ? raw('checked') : ''} /><span></span></label>
       </div>
       <div class="field">
         <label for="st-name">Your name</label>
@@ -826,9 +892,10 @@ export async function aboutView(root, ctx) {
 
       <h2>How it works</h2>
       <ol>
-        <li><strong>Roadmap.</strong> ${ctx.config.totalProblems} problems across 22 topics: Arrays → Hashing → Prefix Sum → Two Pointers → Sliding Window → Stack → Binary Search → Linked List → Recursion → Trees → BST → Heap → Backtracking → Tries → Graphs → Advanced Graphs → 1-D DP → 2-D DP → Greedy → Intervals → Bits → Math.</li>
+        <li><strong>Roadmap.</strong> ${ctx.config.totalProblems} problems across 37 topics in 6 phases: Foundations (basics, arrays, hashing, prefix sum, matrix, recursion, sorting) → Core patterns (two pointers, sliding window, binary search, linked list, stacks) → Trees, heaps &amp; backtracking → Graphs (BFS/DFS, topological sort, union-find, shortest paths) → Greedy &amp; dynamic programming → Specialist topics (bits, math, string algorithms, segment trees, design). Three <em>Mixed Review</em> checkpoints give you unlabeled problems so you practise choosing the pattern yourself.</li>
         <li><strong>Today's problem</strong> is the next one you haven't done. It stays the same all day, so the morning notification and the site always match. If you don't finish it, it is still waiting tomorrow.</li>
         <li><strong>Mark it</strong> as Solved, "Solved, revise later" or Skip. Skipping is for problems you already know.</li>
+        <li><strong>Extra practice (optional).</strong> Turn on "Random extra practice" in Settings to get a random LeetCode problem from the topics you've already covered whenever you want one. It's off by default, never changes your roadmap, and solved ones count toward your streak.</li>
         <li><strong>Revision.</strong> Solved problems come back after 3, 7, 21 and 60 days (spaced repetition), so the patterns stick.</li>
         <li><strong>Reminders.</strong> A push notification at your chosen time. Tapping it opens the LeetCode problem. An optional evening nudge comes only if you haven't finished yet.</li>
       </ol>

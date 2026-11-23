@@ -1,7 +1,9 @@
 import express from 'express';
 import crypto from 'node:crypto';
 import rateLimit from 'express-rate-limit';
-import { TOPICS, SEQUENCE, BY_SLUG } from '../data/curriculum.js';
+import { TOPICS, SEQUENCE, BY_SLUG, PHASES } from '../data/curriculum.js';
+
+const PHASE_NAME = new Map(PHASES.map((ph) => [ph.id, ph.name]));
 import {
   newUser,
   normalizeUser,
@@ -15,8 +17,10 @@ import {
   reminderPayload,
   isValidTimezone,
   localDate,
+  bumpActivity,
   DEFAULT_SETTINGS,
 } from '../planner.js';
+import { createLeetCodeSource, pickPracticeProblem, recordPractice, undoPractice, practiceSummary } from '../practice.js';
 import { isValidSubscription } from '../push.js';
 import { withLock } from '../lock.js';
 
@@ -64,6 +68,7 @@ export function validateSettings(input) {
         break;
       case 'notifications':
       case 'nudge':
+      case 'randomPractice':
         if (typeof value !== 'boolean') throw new HttpError(400, `${key} must be true or false`);
         out[key] = value;
         break;
@@ -74,7 +79,7 @@ export function validateSettings(input) {
   return out;
 }
 
-export function createApiRouter({ store, push, scheduler, config }) {
+export function createApiRouter({ store, push, scheduler, config, practiceSource = createLeetCodeSource() }) {
   const router = express.Router();
   router.use(express.json({ limit: '200kb' }));
 
@@ -84,6 +89,13 @@ export function createApiRouter({ store, push, scheduler, config }) {
     standardHeaders: 'draft-7',
     legacyHeaders: false,
     message: { error: 'Too many accounts created from this network. Try again later.' },
+  });
+  const practiceLimiter = rateLimit({
+    windowMs: 10 * 60 * 1000,
+    limit: 40,
+    standardHeaders: 'draft-7',
+    legacyHeaders: false,
+    message: { error: 'That is a lot of random problems! Wait a few minutes and try again.' },
   });
 
   // ---- helpers ----
@@ -138,6 +150,7 @@ export function createApiRouter({ store, push, scheduler, config }) {
       },
       streak: s.streak,
       progress: { solved: s.solved, total: s.total, percent: s.percent, estimatedDaysLeft: s.estimatedDaysLeft },
+      practice: practiceSummary(user),
       settings: user.settings,
     };
   }
@@ -167,6 +180,7 @@ export function createApiRouter({ store, push, scheduler, config }) {
         topics: TOPICS.map((t, i) => ({
           id: t.id,
           name: t.name,
+          phase: PHASE_NAME.get(t.phase) || '',
           summary: t.summary,
           index: i,
           problems: SEQUENCE.filter((p) => p.topicId === t.id).map((p) => publicProblem(p, user)),
@@ -248,6 +262,7 @@ export function createApiRouter({ store, push, scheduler, config }) {
           settings: u.settings,
           progress: u.progress,
           activity: u.activity,
+          practiceHistory: u.practice.history,
         },
       }));
       res.set('Content-Disposition', 'attachment; filename="daily-dsa-progress.json"');
@@ -278,10 +293,10 @@ export function createApiRouter({ store, push, scheduler, config }) {
       }
       let settings = {};
       try {
-        const { name, timezone, reminderTime, nudge, nudgeTime, dailyGoal, startTopic, notifications } = data.settings || {};
+        const { name, timezone, reminderTime, nudge, nudgeTime, dailyGoal, startTopic, notifications, randomPractice } = data.settings || {};
         settings = validateSettings(
           Object.fromEntries(
-            Object.entries({ name, timezone, reminderTime, nudge, nudgeTime, dailyGoal, startTopic, notifications }).filter(
+            Object.entries({ name, timezone, reminderTime, nudge, nudgeTime, dailyGoal, startTopic, notifications, randomPractice }).filter(
               ([, v]) => v !== undefined,
             ),
           ),
@@ -289,9 +304,26 @@ export function createApiRouter({ store, push, scheduler, config }) {
       } catch {
         settings = {};
       }
+      const practiceHistory = (Array.isArray(data.practiceHistory) ? data.practiceHistory : [])
+        .filter((h) => h && /^[a-z0-9-]{1,120}$/.test(h.slug) && ['solved', 'skipped'].includes(h.result))
+        .slice(-300)
+        .map((h) => ({
+          num: Number.isInteger(h.num) ? h.num : 0,
+          title: String(h.title || h.slug).slice(0, 200),
+          slug: h.slug,
+          difficulty: ['Easy', 'Medium', 'Hard'].includes(h.difficulty) ? h.difficulty : 'Medium',
+          url: `https://leetcode.com/problems/${h.slug}/`,
+          topicId: String(h.topicId || '').slice(0, 40),
+          topicName: String(h.topicName || '').slice(0, 80),
+          tags: [],
+          source: h.source === 'roadmap' ? 'roadmap' : 'leetcode',
+          result: h.result,
+          at: String(h.at || new Date().toISOString()).slice(0, 40),
+        }));
       const body = await withUser(req, (user) => {
         user.progress = progress;
         user.activity = activity;
+        user.practice = { current: null, history: practiceHistory };
         user.settings = { ...user.settings, ...settings };
         user.plans = {};
         return { imported: Object.keys(progress).length };
@@ -308,6 +340,7 @@ export function createApiRouter({ store, push, scheduler, config }) {
         user.progress = {};
         user.activity = {};
         user.plans = {};
+        user.practice = { current: null, history: [] };
         return {};
       });
       res.json({ ok: true });
@@ -353,6 +386,76 @@ export function createApiRouter({ store, push, scheduler, config }) {
           throw new HttpError(400, err.message);
         }
         return todayView(user);
+      });
+      res.json(body);
+    }),
+  );
+
+  // ---- optional random practice ----
+
+  router.get('/practice', requireUser, wrap(async (req, res) => res.json(await withUser(req, (u) => ({ save: false, body: practiceSummary(u) })))));
+
+  router.post(
+    '/practice/next',
+    requireUser,
+    practiceLimiter,
+    wrap(async (req, res) => {
+      const snapshot = normalizeUser(await store.getUser(req.userId));
+      if (!snapshot.settings.randomPractice) throw new HttpError(409, 'Random practice is off. Turn it on in Settings first.');
+      // Ask LeetCode outside the lock (it can take a few seconds), then save under the lock.
+      let problem;
+      try {
+        problem = await pickPracticeProblem(snapshot, practiceSource);
+      } catch {
+        throw new HttpError(503, 'Could not reach LeetCode right now. Try again in a minute.');
+      }
+      if (!problem) throw new HttpError(404, 'No new practice problems for your topics yet. Solve a few more roadmap problems first.');
+      const body = await withUser(req, (user) => {
+        if (user.practice.current) recordPractice(user, 'skipped');
+        user.practice.current = problem;
+        return practiceSummary(user);
+      });
+      res.json(body);
+    }),
+  );
+
+  router.post(
+    '/practice/result',
+    requireUser,
+    wrap(async (req, res) => {
+      const result = req.body?.result;
+      if (!['solved', 'skipped'].includes(result)) throw new HttpError(400, 'Result must be solved or skipped');
+      const body = await withUser(req, (user) => {
+        const entry = recordPractice(user, result);
+        if (!entry) throw new HttpError(409, 'There is no practice problem to mark');
+        if (result === 'solved') bumpActivity(user, localDate(user.settings.timezone), 1);
+        return practiceSummary(user);
+      });
+      res.json(body);
+    }),
+  );
+
+  router.post(
+    '/practice/undo',
+    requireUser,
+    wrap(async (req, res) => {
+      const body = await withUser(req, (user) => {
+        const last = undoPractice(user);
+        if (!last) throw new HttpError(409, 'Nothing to undo');
+        if (last.result === 'solved') bumpActivity(user, localDate(user.settings.timezone, new Date(last.at)), -1);
+        return practiceSummary(user);
+      });
+      res.json(body);
+    }),
+  );
+
+  router.post(
+    '/practice/clear',
+    requireUser,
+    wrap(async (req, res) => {
+      const body = await withUser(req, (user) => {
+        user.practice.current = null;
+        return practiceSummary(user);
       });
       res.json(body);
     }),

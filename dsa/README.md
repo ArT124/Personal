@@ -74,7 +74,7 @@ dsa/
 │   ├── lock.js             per-user lock so parallel requests can't overwrite each other
 │   ├── routes/api.js       REST API + validation
 │   ├── store/              MongoDB store and local JSON-file store
-│   └── data/curriculum.js  the 182-problem roadmap
+│   └── data/curriculum.js  the 336-problem roadmap (see docs/CURRICULUM.md)
 ├── public/                 PWA frontend (no build step)
 │   ├── index.html, manifest.webmanifest, sw.js, 404.html, robots.txt
 │   ├── css/styles.css

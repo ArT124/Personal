@@ -12,7 +12,7 @@ import { withLock } from './lock.js';
 const PUBLIC_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public');
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
-export function createApp({ store, push, scheduler, config }) {
+export function createApp({ store, push, scheduler, config, practiceSource }) {
   const app = express();
   app.disable('x-powered-by');
   if (config.trustProxy) app.set('trust proxy', 1);
@@ -49,7 +49,7 @@ export function createApp({ store, push, scheduler, config }) {
       res.set('Cache-Control', 'no-store');
       next();
     },
-    createApiRouter({ store, push, scheduler, config }),
+    createApiRouter({ store, push, scheduler, config, practiceSource }),
   );
 
   // Personal shortcut: /go/<id> jumps straight to today's LeetCode problem.

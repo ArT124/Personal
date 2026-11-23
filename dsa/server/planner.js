@@ -19,6 +19,8 @@ export const DEFAULT_SETTINGS = {
   dailyGoal: 1,
   startTopic: TOPICS[0].id,
   notifications: true,
+  // Optional random extra practice from LeetCode. Off unless the user turns it on.
+  randomPractice: false,
 };
 
 // ---------- dates ----------
@@ -90,6 +92,7 @@ export function normalizeUser(user) {
     subscriptions: [],
     lastNotifiedDate: null,
     lastNudgeDate: null,
+    practice: { current: null, history: [] },
     ...user,
     settings: { ...DEFAULT_SETTINGS, ...(user.settings || {}) },
   };
@@ -260,7 +263,8 @@ export function markProblem(user, slug, status, now = new Date()) {
   return entry;
 }
 
-function bumpActivity(user, date, delta) {
+/** Adds (or removes) practice on a day; used for the streak and the heatmap. */
+export function bumpActivity(user, date, delta) {
   const next = (user.activity[date] || 0) + delta;
   if (next > 0) user.activity[date] = next;
   else delete user.activity[date];
@@ -331,6 +335,7 @@ export function stats(user, now = new Date()) {
     topics,
     heatmap,
     streak: streaks(user, now),
+    practiceSolved: (user.practice?.history || []).filter((h) => h.result === 'solved').length,
     memberSince: user.createdAt,
   };
 }
