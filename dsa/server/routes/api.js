@@ -20,6 +20,7 @@ import {
   bumpActivity,
   DEFAULT_SETTINGS,
 } from '../planner.js';
+import { revisionSheet } from '../revision.js';
 import { createLeetCodeSource, pickPracticeProblem, recordPractice, undoPractice, practiceSummary } from '../practice.js';
 import { isValidSubscription } from '../push.js';
 import { withLock } from '../lock.js';
@@ -459,6 +460,12 @@ export function createApiRouter({ store, push, scheduler, config, practiceSource
       });
       res.json(body);
     }),
+  );
+
+  router.get(
+    '/revision-sheet',
+    requireUser,
+    wrap(async (req, res) => res.json(await withUser(req, (u) => ({ save: false, body: revisionSheet(u) })))),
   );
 
   router.get('/stats', requireUser, wrap(async (req, res) => res.json(await withUser(req, (u) => ({ save: false, body: stats(u) })))));

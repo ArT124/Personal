@@ -1,11 +1,12 @@
 import { api, auth } from './api.js';
 import { html, toastError, toast } from './ui.js';
 import { registerServiceWorker, resyncPush } from './notifications.js';
-import { welcomeView, todayView, roadmapView, statsView, settingsView, linkView, aboutView, notFoundView } from './views.js';
+import { welcomeView, todayView, roadmapView, statsView, settingsView, linkView, aboutView, notFoundView, revisionView } from './views.js';
 
 const ROUTES = {
   '': { view: todayView, nav: 'today', title: 'Today', auth: true },
   roadmap: { view: roadmapView, nav: 'roadmap', title: 'Roadmap', auth: true },
+  revision: { view: revisionView, nav: 'revision', title: 'Revision sheet', auth: true },
   stats: { view: statsView, nav: 'stats', title: 'Stats', auth: true },
   settings: { view: settingsView, nav: 'settings', title: 'Settings', auth: true },
   about: { view: aboutView, nav: 'about', title: 'About' },

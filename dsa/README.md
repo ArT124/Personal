@@ -13,7 +13,7 @@ cd dsa
 npm install
 cp .env.example .env      # then set CRON_SECRET to any random text
 npm run dev               # http://localhost:3000
-npm test                  # 26 automated tests
+npm test                  # 38 automated tests
 ```
 
 Locally, data is kept in `dsa/data/db.json`. Push notifications work on `localhost` in Chrome, Edge and Firefox.

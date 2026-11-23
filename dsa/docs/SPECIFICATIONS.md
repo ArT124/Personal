@@ -1,6 +1,6 @@
 # Daily DSA: Specifications & Features
 
-Version 1.1.0
+Version 1.2.0
 
 ## 1. What it is
 
@@ -18,7 +18,7 @@ A website and installable app that gives you a daily DSA problem from LeetCode, 
 | Offline / install | Service Worker + Web App Manifest (PWA) | Installs on Android, iOS, Windows, macOS and Linux |
 | Security | Helmet (CSP, HSTS and other headers), express-rate-limit, hashed tokens | Covers the basics a public site needs |
 | Performance | gzip compression, cache headers, service-worker caching | Fast on slow mobile networks |
-| Tests | Node's built-in `node:test` (36 tests) | No extra test framework |
+| Tests | Node's built-in `node:test` (38 tests) | No extra test framework |
 | CI | GitHub Actions (Node 20 and 22) | Runs the tests on every push |
 | Hosting | Render free web service | Free Node hosting with HTTPS |
 | Scheduler | cron-job.org (main) + GitHub Actions (backup) + timer inside the server | Wakes the sleeping free server and sends reminders on time |
@@ -68,6 +68,18 @@ A website and installable app that gives you a daily DSA problem from LeetCode, 
 - Solved extra problems count toward your streak and heatmap, and show on the Stats page. They never change roadmap progress.
 - If LeetCode can't be reached, it offers a roadmap problem you've already solved instead, to practise again.
 - Practice history is included in Export/Import and cleared by Reset.
+
+### 4.2b Revision sheet ("Revise" tab)
+- Built automatically from every topic you've solved at least one problem in, in roadmap order. Skipped-only topics are left out.
+- For each topic:
+  - **Cheat sheet:** how to recognise the pattern, key ideas, common mistakes and typical complexity.
+  - **Re-solve first:** up to 3 problems, starting with those marked "revise later", then the least revised, then the longest ago. A **Re-solved** button logs a revision, the same as the Today page's Revise card.
+  - **Your solved problems:** each with its one-line key idea; "revise later" ones are tagged.
+  - **Extra practice solved:** random-practice problems you solved for that topic.
+- **Filters:** turn topics on or off, show only "revise later" problems, or use **Quiz mode** to hide the key ideas until you tap to check.
+- **Print / save as PDF:** a print-friendly layout without menus or buttons.
+- **Download (.md):** the same sheet as Markdown, with tick boxes for the re-solve list. It works in Notion, Obsidian or GitHub.
+- Linked from the Today page's Revise card, and the **Revise** tab in the menu.
 
 ### 4.3 Reminders and notifications
 - A **daily push notification** at the time you choose, in your own time zone. Tapping it **opens the LeetCode problem directly**.
@@ -148,6 +160,7 @@ Requests that need an account send the header `Authorization: Bearer <userId>.<t
 | POST | `/api/today/bonus` | ✓ | Add one more problem today |
 | POST | `/api/problems/:slug/status` | ✓ | `solved` / `revise` / `skipped` / `todo` (undo) / `reviewed` |
 | GET | `/api/stats` | ✓ | Full statistics |
+| GET | `/api/revision-sheet` | ✓ | Revision sheet: studied topics with notes, solved problems and re-solve order |
 | GET | `/api/practice` | ✓ | Random practice: current problem and counts |
 | POST | `/api/practice/next` | ✓ | Get a random problem (skips the current one); 409 if the feature is off |
 | POST | `/api/practice/result` | ✓ | `{ result: "solved" \| "skipped" }` for the current problem |

@@ -1,6 +1,7 @@
 // Sanity checks for the roadmap: no duplicate slugs or numbers, valid fields.
 // Run: npm run check:curriculum
 import { TOPICS, SEQUENCE, PHASES } from '../server/data/curriculum.js';
+import { REVISION_NOTES } from '../server/data/revisionNotes.js';
 
 const errors = [];
 const phaseIds = PHASES.map((ph) => ph.id);
@@ -11,6 +12,8 @@ for (const t of TOPICS) {
   else if (at < lastPhase) errors.push(`topic ${t.id} is out of phase order`);
   else lastPhase = at;
   if (!t.problems.length) errors.push(`topic ${t.id} has no problems`);
+  const n = REVISION_NOTES[t.id];
+  if (!n || !n.spot || !n.ideas?.length || !n.pitfalls?.length || !n.complexity) errors.push(`topic ${t.id} is missing revision notes`);
 }
 const slugs = new Set();
 const nums = new Set();

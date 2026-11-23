@@ -1,6 +1,6 @@
 {
   "name": "daily-dsa",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Daily DSA: one LeetCode problem a day, in a proper learning order, with daily reminder notifications. Installable PWA for desktop and mobile.",
   "main": "server/index.js",
   "type": "module",

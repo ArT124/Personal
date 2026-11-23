@@ -250,3 +250,14 @@ test('random practice is optional and off by default', async () => {
   assert.equal(cleared.current, null);
   assert.equal((await call('/api/practice/result', { method: 'POST', code, body: { result: 'solved' } })).status, 409);
 });
+
+test('revision sheet endpoint', async () => {
+  const code = await newAccount();
+  assert.equal((await call('/api/revision-sheet')).status, 401);
+  assert.equal((await call('/api/revision-sheet', { code })).json.topics.length, 0);
+  await call(`/api/problems/${SEQUENCE[0].slug}/status`, { method: 'POST', code, body: { status: 'revise' } });
+  const sheet = (await call('/api/revision-sheet', { code })).json;
+  assert.equal(sheet.topics.length, 1);
+  assert.equal(sheet.topics[0].problems[0].flagged, true);
+  assert.equal(sheet.totals.flagged, 1);
+});

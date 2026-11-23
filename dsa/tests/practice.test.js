@@ -119,3 +119,26 @@ test('LeetCode source parses and caches responses', async () => {
   assert.equal(calls, 1);
   assert.deepEqual(a.questions[0], { num: 42, title: 'T', slug: 't', difficulty: 'Hard', paidOnly: false, tags: [{ slug: 'array', name: 'Array' }] });
 });
+
+// ---------- revision sheet ----------
+import { revisionSheet } from '../server/revision.js';
+
+test('revision sheet: only solved topics, flagged problems first in focus', () => {
+  const u = user();
+  const tp = TOPICS.find((t) => t.id === 'two-pointers');
+  markProblem(u, tp.problems[0].slug, 'solved', new Date('2026-03-01T05:00:00Z'));
+  markProblem(u, tp.problems[1].slug, 'solved', new Date('2026-03-02T05:00:00Z'));
+  markProblem(u, tp.problems[2].slug, 'revise', new Date('2026-03-03T05:00:00Z'));
+  markProblem(u, TOPICS[0].problems[0].slug, 'skipped', now); // skipped topics are not on the sheet
+  u.practice.history.push({ slug: 'extra', num: 9999, title: 'Extra', url: 'u', difficulty: 'Easy', topicId: 'two-pointers', result: 'solved', at: now.toISOString() });
+
+  const sheet = revisionSheet(u, now);
+  assert.deepEqual(sheet.topics.map((t) => t.id), ['two-pointers']);
+  const t = sheet.topics[0];
+  assert.equal(t.solved, 3);
+  assert.ok(t.notes.ideas.length > 0);
+  assert.equal(t.focus[0], tp.problems[2].slug); // flagged first
+  assert.equal(t.focus[1], tp.problems[0].slug); // then the oldest
+  assert.equal(t.practice[0].num, 9999);
+  assert.deepEqual(sheet.totals, { topics: 1, problems: 3, flagged: 1 });
+});

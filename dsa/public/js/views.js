@@ -274,7 +274,7 @@ function renderToday(root, ctx, data, subscribed) {
       <h2 id="rec-h">Recommended for you</h2>
       <div class="grid-2">
         <div class="card">
-          <h3>Revise</h3>
+          <div class="card-title-row"><h3>Revise</h3><a class="small" href="#/revision">Revision sheet →</a></div>
           ${
             rec.revision.length
               ? html`<ul class="problem-list">${rec.revision.map((p) =>
@@ -561,6 +561,186 @@ export async function statsView(root) {
     </div>`);
   root.querySelectorAll('.heatmap .pad').forEach((el) => el.style.setProperty('visibility', 'hidden'));
   applyBars(root);
+}
+
+// ====================================================================
+// Revision sheet
+// ====================================================================
+
+const fmtShort = (iso) => (iso ? new Date(iso).toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) : '');
+
+function revisionMarkdown(sheet, topics, opts) {
+  const lines = [`# DSA revision sheet`, '', `${new Date(sheet.generatedAt).toLocaleDateString()} · ${plural(topics.length, 'topic')}`, ''];
+  for (const t of topics) {
+    const problems = t.problems.filter((p) => !opts.flaggedOnly || p.flagged);
+    lines.push(`## ${t.name}`, '', `*${t.phase} · ${t.solved}/${t.total} solved*`, '');
+    if (t.notes) {
+      lines.push(`**Recognise it:** ${t.notes.spot}`, '', '**Key ideas**', ...t.notes.ideas.map((i) => `- ${i}`), '');
+      lines.push('**Watch out**', ...t.notes.pitfalls.map((i) => `- ${i}`), '', `**Complexity:** ${t.notes.complexity}`, '');
+    }
+    const focus = t.focus.map((s) => t.problems.find((p) => p.slug === s)).filter(Boolean);
+    if (focus.length) lines.push('**Re-solve first**', ...focus.map((p) => `- [ ] [${p.num}. ${p.title}](${p.url})`), '');
+    if (problems.length) {
+      lines.push('| # | Problem | Difficulty | Key idea |', '|---|---|---|---|');
+      for (const p of problems) {
+        const idea = opts.quiz ? '_(cover and recall)_' : p.hint.replace(/\|/g, '\\|');
+        lines.push(`| ${p.num} | [${p.title}](${p.url})${p.flagged ? ' ⟳' : ''} | ${p.difficulty} | ${idea} |`);
+      }
+      lines.push('');
+    }
+    if (t.practice.length) lines.push('**Extra practice solved**', ...t.practice.map((p) => `- [${p.num}. ${p.title}](${p.url})`), '');
+  }
+  lines.push('⟳ = marked "revise later"');
+  return lines.join('\n');
+}
+
+export async function revisionView(root, ctx) {
+  const sheet = await api('/revision-sheet');
+  const saved = (() => {
+    try {
+      return JSON.parse(store.get('dsa.revisionOpts') || '{}');
+    } catch {
+      return {};
+    }
+  })();
+  const opts = { flaggedOnly: Boolean(saved.flaggedOnly), quiz: Boolean(saved.quiz) };
+  const hidden = new Set();
+
+  if (!sheet.topics.length) {
+    root.innerHTML = String(html`
+      <div class="page-head"><div><h1>Revision sheet</h1><p>A cheat sheet built from the topics you've solved.</p></div></div>
+      <div class="card empty-state">
+        <p><strong>Nothing to revise yet.</strong></p>
+        <p class="muted">Solve a few roadmap problems first. Each topic you work on gets its own section here, with key ideas, common mistakes and your solved problems.</p>
+        <a class="btn btn-primary" href="#/">Go to today's problem</a>
+      </div>`);
+    return;
+  }
+
+  function visibleTopics() {
+    return sheet.topics.filter((t) => !hidden.has(t.id) && (!opts.flaggedOnly || t.problems.some((p) => p.flagged)));
+  }
+
+  function topicSection(t) {
+    const problems = t.problems.filter((p) => !opts.flaggedOnly || p.flagged);
+    const focus = t.focus.map((s) => t.problems.find((p) => p.slug === s)).filter(Boolean);
+    const n = t.notes;
+    return html`<section class="card section rev-topic" aria-labelledby="rv-${t.id}">
+      <div class="rev-topic-head">
+        <div><div class="rev-phase">${t.phase}</div><h2 id="rv-${t.id}">${t.name}</h2></div>
+        <span class="pill">${t.solved}/${t.total} solved</span>
+      </div>
+      ${
+        n
+          ? html`<div class="rev-notes">
+              <p><strong>Recognise it:</strong> ${n.spot}</p>
+              <div class="rev-cols">
+                <div><h3>Key ideas</h3><ul>${n.ideas.map((i) => html`<li>${i}</li>`)}</ul></div>
+                <div><h3>Watch out</h3><ul>${n.pitfalls.map((i) => html`<li>${i}</li>`)}</ul><p class="small"><strong>Complexity:</strong> ${n.complexity}</p></div>
+              </div>
+            </div>`
+          : ''
+      }
+      ${
+        focus.length && !opts.flaggedOnly
+          ? html`<h3>Re-solve first</h3>
+            <ul class="problem-list rev-focus">${focus.map(
+              (p) => html`<li class="problem-row">
+                <div class="row-main">
+                  <a class="row-title" href="${p.url}" target="_blank" rel="noopener noreferrer">${p.num}. ${p.title}</a>
+                  <div class="row-sub">${p.flagged ? 'Marked revise later · ' : ''}${p.reviews ? `revised ${plural(p.reviews, 'time')}` : 'never revised'} · last seen ${fmtShort(p.lastReviewedAt || p.solvedAt)}</div>
+                </div>
+                <div class="row-actions">${diffPill(p.difficulty)}<button type="button" class="btn btn-small no-print" data-action="reviewed" data-slug="${p.slug}" title="I re-solved it">Re-solved</button></div>
+              </li>`,
+            )}</ul>`
+          : ''
+      }
+      <h3>${opts.flaggedOnly ? 'Marked revise later' : 'Your solved problems'}</h3>
+      <ul class="rev-list">${problems.map(
+        (p) => html`<li>
+          <div class="rev-line">
+            <a href="${p.url}" target="_blank" rel="noopener noreferrer">${p.num}. ${p.title}</a>
+            ${p.flagged ? html`<span class="pill pill-accent" title="Marked revise later">Revise</span>` : ''}
+            ${diffPill(p.difficulty)}
+          </div>
+          ${opts.quiz ? html`<details class="rev-hint"><summary>Recall the idea, then check</summary><p>${p.hint}</p></details>` : html`<p class="rev-hint">${p.hint}</p>`}
+        </li>`,
+      )}</ul>
+      ${
+        t.practice.length
+          ? html`<h3>Extra practice solved</h3><ul class="rev-list rev-practice">${t.practice.map(
+              (p) => html`<li><div class="rev-line"><a href="${p.url}" target="_blank" rel="noopener noreferrer">${p.num}. ${p.title}</a>${diffPill(p.difficulty)}</div></li>`,
+            )}</ul>`
+          : ''
+      }
+    </section>`;
+  }
+
+  function draw() {
+    const topics = visibleTopics();
+    root.innerHTML = String(html`
+      <div class="page-head">
+        <div><h1>Revision sheet</h1><p>${plural(sheet.totals.topics, 'topic')} · ${plural(sheet.totals.problems, 'solved problem')}${sheet.totals.flagged ? ` · ${sheet.totals.flagged} marked revise later` : ''}</p></div>
+      </div>
+      <div class="card rev-controls no-print">
+        <div class="rev-chips" role="group" aria-label="Topics to include">
+          ${sheet.topics.map(
+            (t) => html`<button type="button" class="chip ${hidden.has(t.id) ? '' : 'is-on'}" data-action="toggle-topic" data-topic="${t.id}" aria-pressed="${hidden.has(t.id) ? 'false' : 'true'}">${t.name}</button>`,
+          )}
+        </div>
+        <div class="rev-options">
+          <label class="check"><input type="checkbox" data-opt="flaggedOnly" ${opts.flaggedOnly ? raw('checked') : ''} /> Only "revise later"</label>
+          <label class="check"><input type="checkbox" data-opt="quiz" ${opts.quiz ? raw('checked') : ''} /> Quiz mode (hide the key ideas)</label>
+        </div>
+        <div class="btn-row">
+          <button type="button" class="btn btn-small btn-primary" data-action="print">Print / save as PDF</button>
+          <button type="button" class="btn btn-small" data-action="markdown">${icons.download} Download (.md)</button>
+          <button type="button" class="btn btn-small btn-ghost" data-action="all-topics">Select all topics</button>
+        </div>
+      </div>
+      <div class="print-only rev-print-head">DSA revision sheet · ${new Date(sheet.generatedAt).toLocaleDateString()}</div>
+      ${topics.length ? topics.map(topicSection) : html`<p class="empty">No topics match. Turn some topics back on, or switch off "Only revise later".</p>`}`);
+  }
+  draw();
+
+  root.onchange = (e) => {
+    const key = e.target.dataset.opt;
+    if (!key) return;
+    opts[key] = e.target.checked;
+    store.set('dsa.revisionOpts', JSON.stringify(opts));
+    draw();
+  };
+  root.onclick = async (e) => {
+    const el = e.target.closest('[data-action]');
+    if (!el) return;
+    const action = el.dataset.action;
+    if (action === 'toggle-topic') {
+      const id = el.dataset.topic;
+      if (hidden.has(id)) hidden.delete(id);
+      else hidden.add(id);
+      draw();
+    } else if (action === 'all-topics') {
+      hidden.clear();
+      draw();
+    } else if (action === 'print') {
+      window.print();
+    } else if (action === 'markdown') {
+      downloadFile(`dsa-revision-sheet-${sheet.generatedAt.slice(0, 10)}.md`, revisionMarkdown(sheet, visibleTopics(), opts), 'text/markdown');
+      toast('Revision sheet downloaded.');
+    } else if (action === 'reviewed') {
+      setBusy(el, true);
+      try {
+        await api(`/problems/${el.dataset.slug}/status`, { method: 'POST', body: { status: 'reviewed' } });
+        toast('Revision logged. It moves down the list.');
+        const next = await api('/revision-sheet');
+        Object.assign(sheet, next);
+        draw();
+      } catch (err) {
+        toastError(err);
+        setBusy(el, false);
+      }
+    }
+  };
 }
 
 // ====================================================================
@@ -896,6 +1076,7 @@ export async function aboutView(root, ctx) {
         <li><strong>Today's problem</strong> is the next one you haven't done. It stays the same all day, so the morning notification and the site always match. If you don't finish it, it is still waiting tomorrow.</li>
         <li><strong>Mark it</strong> as Solved, "Solved, revise later" or Skip. Skipping is for problems you already know.</li>
         <li><strong>Extra practice (optional).</strong> Turn on "Random extra practice" in Settings to get a random LeetCode problem from the topics you've already covered whenever you want one. It's off by default, never changes your roadmap, and solved ones count toward your streak.</li>
+        <li><strong>Revision sheet.</strong> The Revise tab turns the topics you've solved into a cheat sheet: how to spot each pattern, key ideas, common mistakes, and which problems to re-solve first. Print it, save it as a PDF or download it as Markdown.</li>
         <li><strong>Revision.</strong> Solved problems come back after 3, 7, 21 and 60 days (spaced repetition), so the patterns stick.</li>
         <li><strong>Reminders.</strong> A push notification at your chosen time. Tapping it opens the LeetCode problem. An optional evening nudge comes only if you haven't finished yet.</li>
       </ol>

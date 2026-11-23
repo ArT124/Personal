@@ -1,5 +1,5 @@
 // Service worker: offline support + push notifications.
-const VERSION = 'v1.1.0';
+const VERSION = 'v1.2.0';
 const SHELL_CACHE = `shell-${VERSION}`;
 const DATA_CACHE = 'data-v1';
 const SHELL = [
